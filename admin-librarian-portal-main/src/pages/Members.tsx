@@ -15,6 +15,12 @@ interface Member {
   membership_type: string;
   membership_start_date: string;
   phone: string;
+  membership_plan_id: string | null;
+  membership_plans: {
+    name: string;
+    annual_fee: number;
+    max_books_allowed: number;
+  } | null;
 }
 
 export default function Members() {
@@ -34,11 +40,11 @@ export default function Members() {
   const fetchMembers = async () => {
     const { data, error } = await supabase
       .from("profiles")
-      .select("*")
+      .select("*, membership_plans(name, annual_fee, max_books_allowed)")
       .order("created_at", { ascending: false });
 
     if (!error && data) {
-      setMembers(data);
+      setMembers(data as Member[]);
     }
   };
 
@@ -75,7 +81,9 @@ export default function Members() {
               <CardHeader>
                 <CardTitle className="flex items-start justify-between">
                   <span className="line-clamp-1">{member.full_name || "Unnamed Member"}</span>
-                  <Badge variant="secondary">{member.membership_type}</Badge>
+                  <Badge variant="secondary">
+                    {member.membership_plans?.name || member.membership_type || "No Plan"}
+                  </Badge>
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
@@ -88,7 +96,19 @@ export default function Members() {
                     <span className="truncate">{member.phone}</span>
                   </div>
                 )}
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                {member.membership_plans && (
+                  <div className="space-y-1 pt-2 border-t">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Annual Fee:</span>
+                      <span className="font-medium">₹{member.membership_plans.annual_fee}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Max Books:</span>
+                      <span className="font-medium">{member.membership_plans.max_books_allowed}</span>
+                    </div>
+                  </div>
+                )}
+                <div className="flex items-center gap-2 text-sm text-muted-foreground pt-2">
                   <Calendar className="h-4 w-4" />
                   <span>
                     Member since {new Date(member.membership_start_date).toLocaleDateString()}

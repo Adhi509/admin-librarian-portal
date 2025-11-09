@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/AuthProvider";
-import { BookOpen, LogOut, Users, BookMarked, LayoutDashboard, History } from "lucide-react";
+import { BookOpen, LogOut, Users, BookMarked, LayoutDashboard, History, BookPlus, BookCheck, CreditCard } from "lucide-react";
 
 export const Navbar = () => {
   const { user, userRole, signOut } = useAuth();
@@ -33,13 +33,33 @@ export const Navbar = () => {
                         Members
                       </Button>
                     </Link>
+                    <Link to="/issue-book">
+                      <Button variant="ghost" size="sm" className="gap-2">
+                        <BookPlus className="h-4 w-4" />
+                        Issue
+                      </Button>
+                    </Link>
+                    <Link to="/return-book">
+                      <Button variant="ghost" size="sm" className="gap-2">
+                        <BookCheck className="h-4 w-4" />
+                        Return
+                      </Button>
+                    </Link>
                     <Link to="/user-history">
                       <Button variant="ghost" size="sm" className="gap-2">
                         <History className="h-4 w-4" />
-                        User History
+                        History
                       </Button>
                     </Link>
                   </>
+                )}
+                {userRole === "admin" && (
+                  <Link to="/membership-plans">
+                    <Button variant="ghost" size="sm" className="gap-2">
+                      <CreditCard className="h-4 w-4" />
+                      Plans
+                    </Button>
+                  </Link>
                 )}
                 <Link to="/books">
                   <Button variant="ghost" size="sm" className="gap-2">
