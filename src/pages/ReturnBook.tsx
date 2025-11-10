@@ -43,23 +43,59 @@ export default function ReturnBook() {
   }, [userRole, navigate]);
 
   const fetchIssuedBooks = async () => {
-    const { data, error } = await supabase
+    const { data: records, error } = await supabase
       .from("borrow_records")
-      .select(
-        `
-        id,
-        issue_date,
-        due_date,
-        books(title, author),
-        profiles(full_name, email, membership_plans(fine_per_day))
-      `
-      )
+      .select("id, issue_date, due_date, book_id, member_id")
       .eq("status", "issued")
       .order("due_date");
 
-    if (!error && data) {
-      setBorrowRecords(data as BorrowRecord[]);
+    if (error || !records) {
+      return;
     }
+
+    // Fetch related data separately
+    const bookIds = records.map(r => r.book_id);
+    const memberIds = records.map(r => r.member_id);
+
+    const [booksRes, profilesRes] = await Promise.all([
+      supabase.from("books").select("id, title, author").in("id", bookIds),
+      supabase.from("profiles").select("id, full_name, email, membership_plan_id").in("id", memberIds)
+    ]);
+
+    const { data: plansData } = await supabase
+      .from("membership_plans")
+      .select("id, fine_per_day");
+
+    // Create lookup maps
+    const booksMap = new Map(booksRes.data?.map(b => [b.id, b]) || []);
+    const profilesMap = new Map(profilesRes.data?.map(p => [p.id, p]) || []);
+    const plansMap = new Map(plansData?.map(p => [p.id, p]) || []);
+
+    // Combine the data
+    const combined = records.map(record => {
+      const book = booksMap.get(record.book_id);
+      const profile = profilesMap.get(record.member_id);
+      const plan = profile?.membership_plan_id ? plansMap.get(profile.membership_plan_id) : null;
+
+      return {
+        id: record.id,
+        issue_date: record.issue_date,
+        due_date: record.due_date,
+        books: {
+          title: book?.title || "Unknown",
+          author: book?.author || "Unknown"
+        },
+        profiles: {
+          full_name: profile?.full_name || "",
+          email: profile?.email || "",
+          membership_plans: {
+            fine_per_day: plan?.fine_per_day || 5
+          }
+        }
+      };
+    });
+
+    setBorrowRecords(combined as BorrowRecord[]);
   };
 
   const calculateFine = (dueDate: string, finePerDay: number) => {
