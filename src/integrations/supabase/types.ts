@@ -26,6 +26,7 @@ export type Database = {
           isbn: string | null
           publication_year: number | null
           publisher: string | null
+          status: string | null
           title: string
           total_copies: number
           updated_at: string | null
@@ -41,6 +42,7 @@ export type Database = {
           isbn?: string | null
           publication_year?: number | null
           publisher?: string | null
+          status?: string | null
           title: string
           total_copies?: number
           updated_at?: string | null
@@ -56,6 +58,7 @@ export type Database = {
           isbn?: string | null
           publication_year?: number | null
           publisher?: string | null
+          status?: string | null
           title?: string
           total_copies?: number
           updated_at?: string | null
@@ -79,7 +82,9 @@ export type Database = {
           id: string
           issue_date: string | null
           issued_by: string | null
+          max_renewals: number | null
           member_id: string
+          renewal_count: number | null
           return_date: string | null
           status: string | null
           updated_at: string | null
@@ -92,7 +97,9 @@ export type Database = {
           id?: string
           issue_date?: string | null
           issued_by?: string | null
+          max_renewals?: number | null
           member_id: string
+          renewal_count?: number | null
           return_date?: string | null
           status?: string | null
           updated_at?: string | null
@@ -105,7 +112,9 @@ export type Database = {
           id?: string
           issue_date?: string | null
           issued_by?: string | null
+          max_renewals?: number | null
           member_id?: string
+          renewal_count?: number | null
           return_date?: string | null
           status?: string | null
           updated_at?: string | null
@@ -174,6 +183,42 @@ export type Database = {
         }
         Relationships: []
       }
+      notifications: {
+        Row: {
+          created_at: string | null
+          id: string
+          message: string
+          read: boolean | null
+          related_id: string | null
+          title: string
+          type: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          message: string
+          read?: boolean | null
+          related_id?: string | null
+          title: string
+          type: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          message?: string
+          read?: boolean | null
+          related_id?: string | null
+          title?: string
+          type?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           address: string | null
@@ -220,6 +265,47 @@ export type Database = {
             columns: ["membership_plan_id"]
             isOneToOne: false
             referencedRelation: "membership_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reservations: {
+        Row: {
+          book_id: string
+          created_at: string | null
+          expires_at: string
+          id: string
+          member_id: string
+          notified: boolean | null
+          reserved_at: string | null
+          status: string | null
+        }
+        Insert: {
+          book_id: string
+          created_at?: string | null
+          expires_at: string
+          id?: string
+          member_id: string
+          notified?: boolean | null
+          reserved_at?: string | null
+          status?: string | null
+        }
+        Update: {
+          book_id?: string
+          created_at?: string | null
+          expires_at?: string
+          id?: string
+          member_id?: string
+          notified?: boolean | null
+          reserved_at?: string | null
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reservations_book_id_fkey"
+            columns: ["book_id"]
+            isOneToOne: false
+            referencedRelation: "books"
             referencedColumns: ["id"]
           },
         ]
