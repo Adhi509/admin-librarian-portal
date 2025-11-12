@@ -4,7 +4,9 @@ import { useAuth } from "@/components/AuthProvider";
 import { Navbar } from "@/components/Navbar";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, BookOpen, AlertCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Calendar, BookOpen, AlertCircle, RefreshCw } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 interface BorrowRecord {
   id: string;
@@ -13,6 +15,8 @@ interface BorrowRecord {
   return_date: string | null;
   status: string;
   fine_amount: number;
+  renewal_count: number;
+  max_renewals: number;
   books: {
     title: string;
     author: string;
@@ -21,7 +25,9 @@ interface BorrowRecord {
 
 export default function MyBooks() {
   const [borrowRecords, setBorrowRecords] = useState<BorrowRecord[]>([]);
+  const [renewingId, setRenewingId] = useState<string | null>(null);
   const { user } = useAuth();
+  const { toast } = useToast();
 
   useEffect(() => {
     if (user) {
@@ -41,6 +47,8 @@ export default function MyBooks() {
         return_date,
         status,
         fine_amount,
+        renewal_count,
+        max_renewals,
         books (
           title,
           author
@@ -51,6 +59,33 @@ export default function MyBooks() {
 
     if (!error && data) {
       setBorrowRecords(data as any);
+    }
+  };
+
+  const handleRenewBook = async (borrowId: string) => {
+    setRenewingId(borrowId);
+
+    try {
+      const { data, error } = await supabase.functions.invoke("renew-book", {
+        body: { borrow_id: borrowId },
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Book Renewed",
+        description: `Your book has been renewed. ${data.renewals_remaining} renewal(s) remaining.`,
+      });
+
+      fetchBorrowRecords();
+    } catch (error: any) {
+      toast({
+        title: "Renewal Failed",
+        description: error.message || "Failed to renew book",
+        variant: "destructive",
+      });
+    } finally {
+      setRenewingId(null);
     }
   };
 
@@ -140,6 +175,24 @@ export default function MyBooks() {
                     <p className="text-sm font-medium text-destructive">
                       Fine Amount: ${record.fine_amount.toFixed(2)}
                     </p>
+                  </div>
+                )}
+                {record.status === "issued" && !isOverdue(record.due_date, record.status) && (
+                  <div className="mt-4 flex items-center justify-between">
+                    <p className="text-sm text-muted-foreground">
+                      Renewals: {record.renewal_count} / {record.max_renewals}
+                    </p>
+                    {record.renewal_count < record.max_renewals && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleRenewBook(record.id)}
+                        disabled={renewingId === record.id}
+                      >
+                        <RefreshCw className={`h-4 w-4 mr-2 ${renewingId === record.id ? "animate-spin" : ""}`} />
+                        {renewingId === record.id ? "Renewing..." : "Renew Book"}
+                      </Button>
+                    )}
                   </div>
                 )}
               </CardContent>
