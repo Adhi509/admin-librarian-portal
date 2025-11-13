@@ -5,6 +5,10 @@ import { Navbar } from "@/components/Navbar";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Calendar, BookOpen, AlertCircle, RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -26,6 +30,11 @@ interface BorrowRecord {
 export default function MyBooks() {
   const [borrowRecords, setBorrowRecords] = useState<BorrowRecord[]>([]);
   const [renewingId, setRenewingId] = useState<string | null>(null);
+  const [extensionDialogOpen, setExtensionDialogOpen] = useState(false);
+  const [renewalDialogOpen, setRenewalDialogOpen] = useState(false);
+  const [selectedRecord, setSelectedRecord] = useState<BorrowRecord | null>(null);
+  const [extensionDays, setExtensionDays] = useState("");
+  const [extensionReason, setExtensionReason] = useState("");
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -62,30 +71,104 @@ export default function MyBooks() {
     }
   };
 
-  const handleRenewBook = async (borrowId: string) => {
-    setRenewingId(borrowId);
+  const handleRequestRenewal = async () => {
+    if (!selectedRecord) return;
 
     try {
-      const { data, error } = await supabase.functions.invoke("renew-book", {
-        body: { borrow_id: borrowId },
+      setRenewingId(selectedRecord.id);
+      
+      const { data, error } = await supabase.functions.invoke("submit-renewal-request", {
+        body: { borrow_record_id: selectedRecord.id },
       });
 
       if (error) throw error;
 
-      toast({
-        title: "Book Renewed",
-        description: `Your book has been renewed. ${data.renewals_remaining} renewal(s) remaining.`,
-      });
+      if (data.error) {
+        toast({
+          title: "Request Failed",
+          description: data.error,
+          variant: "destructive",
+        });
+        return;
+      }
 
-      fetchBorrowRecords();
-    } catch (error: any) {
       toast({
-        title: "Renewal Failed",
-        description: error.message || "Failed to renew book",
+        title: "Renewal Request Submitted",
+        description: "Your renewal request has been submitted and is pending librarian approval.",
+      });
+      
+      setRenewalDialogOpen(false);
+      setSelectedRecord(null);
+      await fetchBorrowRecords();
+    } catch (error: any) {
+      console.error("Error submitting renewal request:", error);
+      toast({
+        title: "Request Failed",
+        description: "Failed to submit renewal request",
         variant: "destructive",
       });
     } finally {
       setRenewingId(null);
+    }
+  };
+
+  const handleRequestExtension = async () => {
+    if (!selectedRecord || !extensionDays || !extensionReason) {
+      toast({
+        title: "Missing Fields",
+        description: "Please fill in all fields",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const days = parseInt(extensionDays);
+    if (isNaN(days) || days <= 0 || days > 30) {
+      toast({
+        title: "Invalid Days",
+        description: "Extension days must be between 1 and 30",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase.functions.invoke("submit-extension-request", {
+        body: {
+          borrow_record_id: selectedRecord.id,
+          requested_days: days,
+          reason: extensionReason,
+        },
+      });
+
+      if (error) throw error;
+
+      if (data.error) {
+        toast({
+          title: "Request Failed",
+          description: data.error,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      toast({
+        title: "Extension Request Submitted",
+        description: "Your extension request has been submitted and is pending librarian approval.",
+      });
+      
+      setExtensionDialogOpen(false);
+      setSelectedRecord(null);
+      setExtensionDays("");
+      setExtensionReason("");
+      await fetchBorrowRecords();
+    } catch (error: any) {
+      console.error("Error submitting extension request:", error);
+      toast({
+        title: "Request Failed",
+        description: "Failed to submit extension request",
+        variant: "destructive",
+      });
     }
   };
 
@@ -123,90 +206,183 @@ export default function MyBooks() {
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1">
                     <CardTitle className="mb-1">{record.books.title}</CardTitle>
-                    <CardDescription>by {record.books.author}</CardDescription>
+                    <CardDescription>{record.books.author}</CardDescription>
                   </div>
                   <Badge variant={getStatusVariant(record.status)}>
-                    {record.status.charAt(0).toUpperCase() + record.status.slice(1)}
+                    {isOverdue(record.due_date, record.status) ? "Overdue" : record.status}
                   </Badge>
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                  <div className="flex items-center gap-2">
-                    <BookOpen className="h-4 w-4 text-muted-foreground" />
-                    <div>
-                      <p className="text-muted-foreground">Issued</p>
-                      <p className="font-medium">
-                        {new Date(record.issue_date).toLocaleDateString()}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Calendar className="h-4 w-4 text-muted-foreground" />
-                    <div>
-                      <p className="text-muted-foreground">Due Date</p>
-                      <p className={`font-medium ${isOverdue(record.due_date, record.status) ? "text-destructive" : ""}`}>
-                        {new Date(record.due_date).toLocaleDateString()}
-                      </p>
-                    </div>
-                  </div>
-                  {record.return_date ? (
-                    <div className="flex items-center gap-2">
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="flex items-center gap-2 text-sm">
                       <Calendar className="h-4 w-4 text-muted-foreground" />
-                      <div>
-                        <p className="text-muted-foreground">Returned</p>
-                        <p className="font-medium">
+                      <span className="text-muted-foreground">Issue Date:</span>
+                      <span className="font-medium">
+                        {new Date(record.issue_date).toLocaleDateString()}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm">
+                      <Calendar className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-muted-foreground">Due Date:</span>
+                      <span className={`font-medium ${isOverdue(record.due_date, record.status) ? 'text-destructive' : ''}`}>
+                        {new Date(record.due_date).toLocaleDateString()}
+                      </span>
+                    </div>
+                    {record.return_date && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <BookOpen className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-muted-foreground">Return Date:</span>
+                        <span className="font-medium">
                           {new Date(record.return_date).toLocaleDateString()}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {isOverdue(record.due_date, record.status) && (
+                    <div className="flex items-start gap-2 p-3 bg-destructive/10 border border-destructive/20 rounded-md">
+                      <AlertCircle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
+                      <div>
+                        <p className="font-medium text-destructive text-sm">Overdue!</p>
+                        <p className="text-sm text-muted-foreground">
+                          Please return this book as soon as possible.
                         </p>
                       </div>
                     </div>
-                  ) : isOverdue(record.due_date, record.status) ? (
-                    <div className="flex items-center gap-2 text-destructive">
-                      <AlertCircle className="h-4 w-4" />
-                      <div>
-                        <p className="font-medium">Overdue!</p>
-                        <p className="text-xs">Please return soon</p>
-                      </div>
+                  )}
+
+                  {record.fine_amount > 0 && (
+                    <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-md">
+                      <p className="text-sm">
+                        <span className="font-medium">Fine Amount:</span> ₹{record.fine_amount.toFixed(2)}
+                      </p>
                     </div>
-                  ) : null}
-                </div>
-                {record.fine_amount > 0 && (
-                  <div className="mt-4 p-3 bg-destructive/10 rounded-lg border border-destructive/20">
-                    <p className="text-sm font-medium text-destructive">
-                      Fine Amount: ${record.fine_amount.toFixed(2)}
-                    </p>
-                  </div>
-                )}
-                {record.status === "issued" && !isOverdue(record.due_date, record.status) && (
-                  <div className="mt-4 flex items-center justify-between">
-                    <p className="text-sm text-muted-foreground">
-                      Renewals: {record.renewal_count} / {record.max_renewals}
-                    </p>
-                    {record.renewal_count < record.max_renewals && (
+                  )}
+
+                  {record.status === "issued" && !isOverdue(record.due_date, record.status) && (
+                    <div className="flex gap-2">
+                      {record.renewal_count < record.max_renewals && (
+                        <Button
+                          onClick={() => {
+                            setSelectedRecord(record);
+                            setRenewalDialogOpen(true);
+                          }}
+                          disabled={renewingId === record.id}
+                          size="sm"
+                          variant="default"
+                          className="gap-2"
+                        >
+                          <RefreshCw className="h-4 w-4" />
+                          Request Renewal ({record.max_renewals - record.renewal_count} left)
+                        </Button>
+                      )}
                       <Button
+                        onClick={() => {
+                          setSelectedRecord(record);
+                          setExtensionDialogOpen(true);
+                        }}
                         size="sm"
                         variant="outline"
-                        onClick={() => handleRenewBook(record.id)}
-                        disabled={renewingId === record.id}
                       >
-                        <RefreshCw className={`h-4 w-4 mr-2 ${renewingId === record.id ? "animate-spin" : ""}`} />
-                        {renewingId === record.id ? "Renewing..." : "Renew Book"}
+                        Request Extension
                       </Button>
-                    )}
-                  </div>
-                )}
+                    </div>
+                  )}
+                </div>
               </CardContent>
             </Card>
           ))}
+          {borrowRecords.length === 0 && (
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center py-12">
+                <BookOpen className="h-12 w-12 text-muted-foreground mb-4" />
+                <p className="text-muted-foreground">You haven't borrowed any books yet.</p>
+              </CardContent>
+            </Card>
+          )}
         </div>
-
-        {borrowRecords.length === 0 && (
-          <div className="text-center py-12">
-            <BookOpen className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-            <p className="text-muted-foreground">You haven't borrowed any books yet</p>
-          </div>
-        )}
       </div>
+
+      <Dialog open={renewalDialogOpen} onOpenChange={setRenewalDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Request Book Renewal</DialogTitle>
+            <DialogDescription>
+              Submit a renewal request for "{selectedRecord?.books.title}". 
+              A librarian will review your request and notify you of their decision.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <p className="text-sm text-muted-foreground">
+              If approved, your due date will be extended by 14 days from the current due date.
+            </p>
+            <p className="text-sm">
+              <strong>Current Due Date:</strong> {selectedRecord?.due_date ? new Date(selectedRecord.due_date).toLocaleDateString() : 'N/A'}
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRenewalDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleRequestRenewal} disabled={renewingId !== null}>
+              {renewingId !== null ? "Submitting..." : "Submit Request"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={extensionDialogOpen} onOpenChange={setExtensionDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Request Due Date Extension</DialogTitle>
+            <DialogDescription>
+              Request an extension for "{selectedRecord?.books.title}". 
+              A librarian will review your request and notify you of their decision.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="extension-days">Number of Days (1-30)</Label>
+              <Input
+                id="extension-days"
+                type="number"
+                min="1"
+                max="30"
+                value={extensionDays}
+                onChange={(e) => setExtensionDays(e.target.value)}
+                placeholder="Enter number of days"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="extension-reason">Reason for Extension</Label>
+              <Textarea
+                id="extension-reason"
+                value={extensionReason}
+                onChange={(e) => setExtensionReason(e.target.value)}
+                placeholder="Please provide a reason for your extension request"
+                rows={4}
+              />
+            </div>
+            <p className="text-sm text-muted-foreground">
+              <strong>Current Due Date:</strong> {selectedRecord?.due_date ? new Date(selectedRecord.due_date).toLocaleDateString() : 'N/A'}
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setExtensionDialogOpen(false);
+              setExtensionDays("");
+              setExtensionReason("");
+            }}>
+              Cancel
+            </Button>
+            <Button onClick={handleRequestExtension}>
+              Submit Request
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -330,6 +330,61 @@ export type Database = {
           },
         ]
       }
+      renewal_requests: {
+        Row: {
+          borrow_record_id: string
+          created_at: string | null
+          id: string
+          librarian_id: string | null
+          librarian_reason: string | null
+          member_id: string
+          processed_at: string | null
+          status: string
+        }
+        Insert: {
+          borrow_record_id: string
+          created_at?: string | null
+          id?: string
+          librarian_id?: string | null
+          librarian_reason?: string | null
+          member_id: string
+          processed_at?: string | null
+          status?: string
+        }
+        Update: {
+          borrow_record_id?: string
+          created_at?: string | null
+          id?: string
+          librarian_id?: string | null
+          librarian_reason?: string | null
+          member_id?: string
+          processed_at?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "renewal_requests_borrow_record_id_fkey"
+            columns: ["borrow_record_id"]
+            isOneToOne: false
+            referencedRelation: "borrow_records"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "renewal_requests_librarian_id_fkey"
+            columns: ["librarian_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "renewal_requests_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       reservations: {
         Row: {
           book_id: string
