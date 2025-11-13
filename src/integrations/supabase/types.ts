@@ -150,6 +150,67 @@ export type Database = {
         }
         Relationships: []
       }
+      extension_requests: {
+        Row: {
+          borrow_record_id: string
+          created_at: string | null
+          id: string
+          librarian_id: string | null
+          librarian_reason: string | null
+          member_id: string
+          processed_at: string | null
+          reason: string
+          requested_days: number
+          status: string
+        }
+        Insert: {
+          borrow_record_id: string
+          created_at?: string | null
+          id?: string
+          librarian_id?: string | null
+          librarian_reason?: string | null
+          member_id: string
+          processed_at?: string | null
+          reason: string
+          requested_days: number
+          status?: string
+        }
+        Update: {
+          borrow_record_id?: string
+          created_at?: string | null
+          id?: string
+          librarian_id?: string | null
+          librarian_reason?: string | null
+          member_id?: string
+          processed_at?: string | null
+          reason?: string
+          requested_days?: number
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "extension_requests_borrow_record_id_fkey"
+            columns: ["borrow_record_id"]
+            isOneToOne: false
+            referencedRelation: "borrow_records"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "extension_requests_librarian_id_fkey"
+            columns: ["librarian_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "extension_requests_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       membership_plans: {
         Row: {
           annual_fee: number
