@@ -25,6 +25,8 @@ interface BorrowRecord {
     title: string;
     author: string;
   };
+  pendingRenewal?: boolean;
+  pendingExtension?: boolean;
 }
 
 export default function MyBooks() {
@@ -67,7 +69,31 @@ export default function MyBooks() {
       .order("issue_date", { ascending: false });
 
     if (!error && data) {
-      setBorrowRecords(data as any);
+      // Fetch pending renewal requests
+      const { data: renewalRequests } = await supabase
+        .from("renewal_requests")
+        .select("borrow_record_id")
+        .eq("member_id", user.id)
+        .eq("status", "pending");
+
+      // Fetch pending extension requests
+      const { data: extensionRequests } = await supabase
+        .from("extension_requests")
+        .select("borrow_record_id")
+        .eq("member_id", user.id)
+        .eq("status", "pending");
+
+      const renewalRecordIds = new Set(renewalRequests?.map(r => r.borrow_record_id) || []);
+      const extensionRecordIds = new Set(extensionRequests?.map(r => r.borrow_record_id) || []);
+
+      // Add pending status to records
+      const enrichedData = data.map(record => ({
+        ...record,
+        pendingRenewal: renewalRecordIds.has(record.id),
+        pendingExtension: extensionRecordIds.has(record.id),
+      }));
+
+      setBorrowRecords(enrichedData as any);
     }
   };
 
@@ -262,32 +288,41 @@ export default function MyBooks() {
                   )}
 
                   {record.status === "issued" && !isOverdue(record.due_date, record.status) && (
-                    <div className="flex gap-2">
-                      {record.renewal_count < record.max_renewals && (
+                    <div className="space-y-2">
+                      <div className="flex gap-2">
+                        {record.renewal_count < record.max_renewals && (
+                          <Button
+                            onClick={() => {
+                              setSelectedRecord(record);
+                              setRenewalDialogOpen(true);
+                            }}
+                            disabled={renewingId === record.id || record.pendingRenewal}
+                            size="sm"
+                            variant="default"
+                            className="gap-2"
+                          >
+                            <RefreshCw className="h-4 w-4" />
+                            {record.pendingRenewal ? "Renewal Pending" : `Request Renewal (${record.max_renewals - record.renewal_count} left)`}
+                          </Button>
+                        )}
                         <Button
                           onClick={() => {
                             setSelectedRecord(record);
-                            setRenewalDialogOpen(true);
+                            setExtensionDialogOpen(true);
                           }}
-                          disabled={renewingId === record.id}
+                          disabled={record.pendingExtension}
                           size="sm"
-                          variant="default"
-                          className="gap-2"
+                          variant="outline"
                         >
-                          <RefreshCw className="h-4 w-4" />
-                          Request Renewal ({record.max_renewals - record.renewal_count} left)
+                          {record.pendingExtension ? "Extension Pending" : "Request Extension"}
                         </Button>
+                      </div>
+                      {(record.pendingRenewal || record.pendingExtension) && (
+                        <p className="text-sm text-muted-foreground">
+                          {record.pendingRenewal && "Renewal request pending librarian approval. "}
+                          {record.pendingExtension && "Extension request pending librarian approval."}
+                        </p>
                       )}
-                      <Button
-                        onClick={() => {
-                          setSelectedRecord(record);
-                          setExtensionDialogOpen(true);
-                        }}
-                        size="sm"
-                        variant="outline"
-                      >
-                        Request Extension
-                      </Button>
                     </div>
                   )}
                 </div>
