@@ -119,6 +119,17 @@ export const Navbar = () => {
                     My Books
                   </Button>
                 </Link>
+                <Link to="/fine-payments">
+                  <Button variant="ghost" size="sm" className="gap-2">
+                    <CreditCard className="h-4 w-4" />
+                    Fines
+                  </Button>
+                </Link>
+                <Link to="/damaged-books">
+                  <Button variant="ghost" size="sm">
+                    Damaged
+                  </Button>
+                </Link>
                 <Link to="/notifications">
                   <Button variant="ghost" size="sm" className="gap-2 relative">
                     <Bell className="h-4 w-4" />

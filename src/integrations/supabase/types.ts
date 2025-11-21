@@ -150,6 +150,51 @@ export type Database = {
         }
         Relationships: []
       }
+      damaged_books: {
+        Row: {
+          book_id: string
+          created_at: string
+          damage_description: string
+          id: string
+          report_date: string
+          reported_by: string
+          resolution_notes: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          severity: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          book_id: string
+          created_at?: string
+          damage_description: string
+          id?: string
+          report_date?: string
+          reported_by: string
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          book_id?: string
+          created_at?: string
+          damage_description?: string
+          id?: string
+          report_date?: string
+          reported_by?: string
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       extension_requests: {
         Row: {
           borrow_record_id: string
@@ -210,6 +255,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      fine_payments: {
+        Row: {
+          amount: number
+          borrow_record_id: string
+          created_at: string
+          id: string
+          member_id: string
+          notes: string | null
+          payment_date: string
+          payment_method: string | null
+          transaction_reference: string | null
+        }
+        Insert: {
+          amount: number
+          borrow_record_id: string
+          created_at?: string
+          id?: string
+          member_id: string
+          notes?: string | null
+          payment_date?: string
+          payment_method?: string | null
+          transaction_reference?: string | null
+        }
+        Update: {
+          amount?: number
+          borrow_record_id?: string
+          created_at?: string
+          id?: string
+          member_id?: string
+          notes?: string | null
+          payment_date?: string
+          payment_method?: string | null
+          transaction_reference?: string | null
+        }
+        Relationships: []
       }
       membership_plans: {
         Row: {
